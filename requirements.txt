@@ -1,0 +1,26 @@
+# Data Generation
+faker==20.1.0
+pymongo==4.6.0
+
+# Kafka
+kafka-python==2.0.2
+
+# Cassandra
+cassandra-driver==3.28.0
+
+# Spark
+pyspark==3.4.1
+
+# Data Processing
+pandas==2.1.4
+numpy==1.26.2
+
+# API
+flask==3.0.0
+flask-cors==4.0.0
+
+# Visualization
+plotly==5.18.0
+
+# Utilities
+python-dateutil==2.8.2
