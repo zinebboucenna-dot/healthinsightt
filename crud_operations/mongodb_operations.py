@@ -1,5 +1,5 @@
 from pymongo import MongoClient, WriteConcern
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 class MongoDBOperations:
@@ -17,7 +17,7 @@ class MongoDBOperations:
             {
                 "$set": {
                     **updates,
-                    "last_updated": datetime.utcnow()
+                    "last_updated": datetime.now(timezone.utc)
                 }
             }
         )
@@ -30,12 +30,12 @@ class MongoDBOperations:
             {
                 "$push": {
                     "medical_notes": {
-                        "date": datetime.utcnow(),
+                        "date": datetime.now(timezone.utc),
                         "doctor": doctor,
                         "note": note
                     }
                 },
-                "$set": {"last_updated": datetime.utcnow()}
+                "$set": {"last_updated": datetime.now(timezone.utc)}
             }
         )
         return result.modified_count > 0
@@ -53,11 +53,12 @@ class MongoDBOperations:
     
     def get_risk_score(self, patient_id):
         """Q6: Get current risk score (fast indexed query)"""
-        result = self.patients.find_one(
+        cursor = self.patients.find(
             {"patient_id": patient_id},
             {"patient_id": 1, "risk_score": 1, "last_updated": 1}
-        ).hint({"patient_id": 1})  # Force index usage for speed
+        ).hint({"patient_id": 1}).limit(1)  # Force index usage for speed
         
+        result = next(cursor, None)
         if result:
             return {
                 "patient_id": result["patient_id"],
@@ -71,7 +72,7 @@ class MongoDBOperations:
         update_doc = {
             "$set": {
                 "risk_score": new_score,
-                "last_updated": datetime.utcnow()
+                "last_updated": datetime.now(timezone.utc)
             }
         }
         
@@ -80,7 +81,7 @@ class MongoDBOperations:
             update_doc["$push"] = {
                 "risk_score_history": {
                     "score": new_score,
-                    "calculated_at": datetime.utcnow(),
+                    "calculated_at": datetime.now(timezone.utc),
                     "factors": factors
                 }
             }

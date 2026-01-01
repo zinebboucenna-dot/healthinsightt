@@ -1,6 +1,6 @@
 from cassandra.cluster import Cluster
 from cassandra.query import SimpleStatement, dict_factory
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import uuid
 
 class CassandraOperations:
@@ -22,7 +22,7 @@ class CassandraOperations:
         
         self.session.execute(
             query,
-            (uuid.UUID(patient_id), datetime.utcnow(), metric_type, value, unit,
+            (uuid.UUID(patient_id), datetime.now(timezone.utc), metric_type, value, unit,
              device_id, is_abnormal, threshold_min, threshold_max),
             timeout=0.1  # 100ms timeout
         )
@@ -50,7 +50,7 @@ class CassandraOperations:
     
     def get_abnormal_readings(self, hours=24):
         """Q4: Detect abnormal readings across patients"""
-        cutoff_time = datetime.utcnow() - timedelta(hours=hours)
+        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
         
         query = """
         SELECT patient_id, metric_type, value, reading_timestamp

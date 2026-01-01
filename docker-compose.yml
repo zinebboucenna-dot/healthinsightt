@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   # Cassandra Cluster
   cassandra-1:
@@ -51,27 +53,25 @@ services:
     networks:
       - healthinsight-network
 
- # MongoDB Standalone
-mongodb:
-  image: mongo:6.0
-  container_name: mongodb
-  ports:
-    - "37017:27017"  # host port 37017
-  volumes:
-    - mongodb-data:/data/db
-    - ./config:/config
-  networks:
-    - healthinsight-network
-  healthcheck:
-    test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
-    interval: 10s
-    timeout: 5s
-    retries: 5
+  # MongoDB Primary
+  mongodb-primary:
+    image: mongo:6.0
+    container_name: mongodb-primary
+    ports:
+      - "27018:27017"
+    command: mongod --replSet rs0 --bind_ip_all
+    volumes:
+      - mongodb-primary-data:/data/db
+      - ./config:/config
+    networks:
+      - healthinsight-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-volumes:
-  mongodb-data:
-
-
+  # MongoDB Secondary
   mongodb-secondary:
     image: mongo:6.0
     container_name: mongodb-secondary
@@ -121,10 +121,6 @@ volumes:
   # Spark Master
   spark-master:
     image: apache/spark:3.5.0
-
-
-
-
     container_name: spark-master
     environment:
       - SPARK_MODE=master
@@ -145,9 +141,6 @@ volumes:
   # Spark Worker 1
   spark-worker-1:
     image: apache/spark:3.5.0
-
-
-
     container_name: spark-worker-1
     depends_on:
       - spark-master
@@ -168,9 +161,6 @@ volumes:
   # Spark Worker 2
   spark-worker-2:
     image: apache/spark:3.5.0
-
-
-
     container_name: spark-worker-2
     depends_on:
       - spark-master
@@ -188,6 +178,9 @@ volumes:
     networks:
       - healthinsight-network
 
+# =========================
+# Volumes (ONLY ONE BLOCK)
+# =========================
 volumes:
   cassandra1-data:
   cassandra2-data:
@@ -195,6 +188,9 @@ volumes:
   mongodb-primary-data:
   mongodb-secondary-data:
 
+# =========================
+# Network
+# =========================
 networks:
   healthinsight-network:
     driver: bridge

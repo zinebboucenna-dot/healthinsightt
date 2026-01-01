@@ -49,7 +49,7 @@ class MonitoringSimulator:
         }
     }
     
-    def __init__(self, kafka_broker="localhost:9092", mongo_uri="mongodb://localhost:27017/"):
+    def __init__(self, kafka_broker="localhost:9092", mongo_uri="mongodb://localhost:27018/?directConnection=true"):
         self.producer = KafkaProducer(
             bootstrap_servers=kafka_broker,
             value_serializer=lambda v: json.dumps(v).encode('utf-8'),
