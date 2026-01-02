@@ -70,12 +70,12 @@ db.daily_statistics.createIndex({ date: -1 }, { name: "idx_date" });
 db.patients.insertOne({
   patient_id: "P000001",
   personal_info: {
-    name: "Ahmed Benmohamed",
+    name: "Ronaldo Ronaldo",
     date_of_birth: new Date("1985-03-15"),
     gender: "M",
     contact: {
       phone: "+213555123456",
-      email: "ahmed@example.dz",
+      email: "Ronaldo@example.dz",
       address: {
         street: "Rue des Frères Bouadou",
         city: "Constantine",

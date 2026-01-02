@@ -1,133 +1,108 @@
-from pymongo import MongoClient, WriteConcern
-from datetime import datetime, timezone
-import uuid
+from pymongo import MongoClient
+from datetime import datetime
+import sys
 
 class MongoDBOperations:
-    def __init__(self, uri="mongodb://localhost:27017/"):
-        self.client = MongoClient(uri)
+    def __init__(self, mongo_uri="mongodb://localhost:27018/?directConnection=true"):
+        self.client = MongoClient(mongo_uri)
         self.db = self.client.healthinsight
-        self.patients = self.db.patients.with_options(
-            write_concern=WriteConcern(w="majority", j=True)
-        )
+        self.patients = self.db.patients
     
     def update_patient_profile(self, patient_id, updates):
-        """Q3: Update patient profile (contact info, medical notes)"""
+        """Q3: Update patient profile (contact info)"""
         result = self.patients.update_one(
             {"patient_id": patient_id},
             {
                 "$set": {
                     **updates,
-                    "last_updated": datetime.now(timezone.utc)
+                    "last_updated": datetime.utcnow()
                 }
             }
         )
-        return result.modified_count > 0
+        return result.matched_count > 0
     
     def add_medical_note(self, patient_id, doctor, note):
-        """Q3: Add medical note to patient record"""
+        """Q3: Add medical note"""
         result = self.patients.update_one(
             {"patient_id": patient_id},
             {
                 "$push": {
                     "medical_notes": {
-                        "date": datetime.now(timezone.utc),
+                        "date": datetime.utcnow(),
                         "doctor": doctor,
                         "note": note
                     }
                 },
-                "$set": {"last_updated": datetime.now(timezone.utc)}
+                "$set": {"last_updated": datetime.utcnow()}
             }
         )
-        return result.modified_count > 0
+        return result.matched_count > 0
     
-    def get_patient_by_id(self, patient_id):
-        """Retrieve patient profile"""
+    def get_patient(self, patient_id):
+        """Retrieve patient"""
         return self.patients.find_one({"patient_id": patient_id})
-    
-    def search_patients_by_name(self, name):
-        """Text search for patients"""
-        return list(self.patients.find(
-            {"$text": {"$search": name}},
-            {"score": {"$meta": "textScore"}}
-        ).sort([("score", {"$meta": "textScore"})]))
-    
-    def get_risk_score(self, patient_id):
-        """Q6: Get current risk score (fast indexed query)"""
-        cursor = self.patients.find(
-            {"patient_id": patient_id},
-            {"patient_id": 1, "risk_score": 1, "last_updated": 1}
-        ).hint({"patient_id": 1}).limit(1)  # Force index usage for speed
-        
-        result = next(cursor, None)
-        if result:
-            return {
-                "patient_id": result["patient_id"],
-                "risk_score": result["risk_score"],
-                "last_updated": result["last_updated"]
-            }
-        return None
-    
-    def update_risk_score(self, patient_id, new_score, factors=None):
-        """Q6: Update current risk score with history tracking"""
-        update_doc = {
-            "$set": {
-                "risk_score": new_score,
-                "last_updated": datetime.now(timezone.utc)
-            }
-        }
-        
-        # Optionally track risk score history
-        if factors:
-            update_doc["$push"] = {
-                "risk_score_history": {
-                    "score": new_score,
-                    "calculated_at": datetime.now(timezone.utc),
-                    "factors": factors
-                }
-            }
-        
-        result = self.patients.update_one(
-            {"patient_id": patient_id},
-            update_doc
-        )
-        return result.modified_count > 0
-    
-    def get_high_risk_patients(self, threshold=70, limit=10):
-        """Q6: Query patients by risk score"""
-        return list(self.patients.find(
-            {"risk_score": {"$gte": threshold}}
-        ).sort("risk_score", -1).limit(limit))
 
-# Example usage
+
 if __name__ == "__main__":
+
+    print("\n" + "=" * 60)
+    print("Q3: Update Patient Profile")
+    print("=" * 60 + "\n")
+
+    # 🔹 Require patient ID from command line
+    if len(sys.argv) > 1:
+        patient_id = sys.argv[1]
+    else:
+        print("❌ Please provide patient ID")
+        print("Usage: python crud_operations/mongodb_operations.py P000001")
+        sys.exit(1)
+
     mongo = MongoDBOperations()
-    
-    # Q3: Update patient contact info
+
+    patient = mongo.get_patient(patient_id)
+    if not patient:
+        print(f"❌ Patient {patient_id} not found.")
+        sys.exit(1)
+
+    print(f"Testing with Patient ID: {patient_id}")
+    print(
+        f"Current phone: "
+        f"{patient.get('personal_info', {}).get('contact', {}).get('phone', 'N/A')}\n"
+    )
+
+    # ===============================
+    # Test 1: Update phone number
+    # ===============================
+    print("Test 1: Updating phone number...")
     success = mongo.update_patient_profile(
-        "P000001",
-        {"personal_info.contact.phone": "+213555999888"}
+        patient_id,
+        {"personal_info.contact.phone": "+213555999555"}
     )
-    print(f"Profile updated: {success}")
-    
-    # Q3: Add medical note
-    mongo.add_medical_note(
-        "P000001",
+
+    if success:
+        updated = mongo.get_patient(patient_id)
+        new_phone = updated["personal_info"]["contact"]["phone"]
+        print(f"✅ Phone updated to: {new_phone}\n")
+    else:
+        print("❌ Phone update failed\n")
+
+    # ===============================
+    # Test 2: Add medical note
+    # ===============================
+    print("Test 2: Adding medical note...")
+    success = mongo.add_medical_note(
+        patient_id,
         "Dr. Salim Kaddour",
-        "Patient responding well to treatment. Continue current medication."
+        "Patient profile updated. Contact information verified."
     )
-    
-    # Q6: Get risk score (fast read)
-    risk_data = mongo.get_risk_score("P000001")
-    print(f"Risk score: {risk_data}")
-    
-    # Q6: Update risk score
-    mongo.update_risk_score(
-        "P000001",
-        new_score=70,
-        factors=["recent_abnormal_readings", "hypertension"]
-    )
-    print("Risk score updated successfully")
-    
-    # Q6: Get high-risk patients
-    high_risk = mongo.get_high_risk_patients(threshold=70)
-    print(f"Found {len(high_risk)} high-risk patients")
+
+    if success:
+        updated = mongo.get_patient(patient_id)
+        notes_count = len(updated.get("medical_notes", []))
+        print(f"✅ Medical note added. Total notes: {notes_count}\n")
+    else:
+        print("❌ Failed to add medical note\n")
+
+    print("=" * 60)
+    print("✅ Q3 COMPLETE: Patient profile updated successfully")
+    print("=" * 60 + "\n")
